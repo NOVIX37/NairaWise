@@ -1,0 +1,5 @@
+# NairaWise - everything may be crawled.
+User-agent: *
+Allow: /
+
+Sitemap: https://YOUR-USERNAME.github.io/YOUR-REPO/sitemap.xml

@@ -1,0 +1,49 @@
+# Keeps data/rates.json up to date so the website still has a recent, validated
+# rate even if the visitor's browser cannot call the rate provider directly.
+#
+# Permissions : only "contents: write" (needed to commit data/rates.json). No secrets.
+# Schedule    : twice a day (06:15 and 15:45 UTC = 07:15 and 16:45 Nigerian time).
+# Manual run  : GitHub -> Actions -> "Update exchange rate" -> "Run workflow".
+# Failure     : if the download or validation fails, the job fails, the old file is
+#               kept, and GitHub emails the repository owner (default behaviour).
+# Note        : GitHub pauses scheduled workflows in public repos after 60 days with
+#               no repository activity. If that happens, press "Enable workflow".
+name: Update exchange rate
+
+on:
+  schedule:
+    - cron: "15 6 * * *"
+    - cron: "45 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-rates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the unit tests first
+        run: node --test
+
+      - name: Download and validate the rate
+        run: node tools/update-rates.js
+
+      - name: Commit the new data file
+        run: |
+          git config user.name "nairawise-rate-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/rates.json
+          if git diff --cached --quiet; then
+            echo "No change to commit."
+          else
+            git commit -m "Update USD/NGN rate data"
+            git push
+          fi

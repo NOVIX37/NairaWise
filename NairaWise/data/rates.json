@@ -1,0 +1,10 @@
+{
+  "base": "USD",
+  "quote": "NGN",
+  "rate": 1331.596,
+  "rate_date": "2026-10-12",
+  "source_id": "frankfurter-cbn",
+  "source_label": "Frankfurter, CBN provider",
+  "checked_on": "2026-10-12",
+  "note": "Starter file copied by hand from https://api.frankfurter.dev/v2/providers/cbn/rate/usd/ngn on the date in checked_on. The GitHub Action in .github/workflows/update-rates.yml replaces this file automatically and adds a precise fetched_at time."
+}
