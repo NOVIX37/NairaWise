@@ -2,7 +2,7 @@
 
 A free, zero-budget **USD ↔ NGN converter** in **English** (default) and **Hausa**, built with plain HTML, CSS and JavaScript and hosted on GitHub Pages. It shows a **CBN-sourced reference rate** with its real rate date, and lets users type in a **dealer's own rate**.
 
-> Placeholders you must replace before publishing: `YOUR-USERNAME` and `YOUR-REPO` (see [Deploy](#7-deploy-with-github-pages)). Nothing in this project assumes a domain you have not chosen.
+> Deployed site: [https://novix37.github.io/NairaWise/](https://novix37.github.io/NairaWise/). If you reuse this project at another address, replace the site URL placeholders before publishing.
 
 ---
 
@@ -18,7 +18,7 @@ A free, zero-budget **USD ↔ NGN converter** in **English** (default) and **Hau
 ## 2. Folder structure
 
 ```
-NairaWise/
+Repository root/
 ├── index.html                  English home page + converter (default landing page)
 ├── how-it-works.html           English guide pages
 ├── rates-explained.html
@@ -43,21 +43,22 @@ NairaWise/
 │   └── set-site-url.js         replaces YOUR-USERNAME/YOUR-REPO with your real address
 ├── tests/unit/                 automated tests (calculator, rate logic, site checks)
 ├── tests/browser/              optional real-browser tests (Python + Playwright)
+├── .github/workflows/deploy-pages.yml
 ├── .github/workflows/update-rates.yml
-├── robots.txt   sitemap.xml   .nojekyll   README.md
+├── robots.txt   sitemap.xml   README.md
 ```
 
 Final page addresses (after you set your address):
 
 | Page | English | Hausa |
 |---|---|---|
-| Home / converter | `https://YOUR-USERNAME.github.io/YOUR-REPO/` | `.../ha/` |
-| How it works | `.../how-it-works.html` | `.../ha/how-it-works.html` |
-| Rates explained | `.../rates-explained.html` | `.../ha/rates-explained.html` |
-| Data sources | `.../methodology.html` | `.../ha/methodology.html` |
-| FAQ | `.../faq.html` | `.../ha/faq.html` |
-| About | `.../about.html` | `.../ha/about.html` |
-| Feedback | `.../contact.html` | `.../ha/contact.html` |
+| Home / converter | `https://novix37.github.io/NairaWise/` | `https://novix37.github.io/NairaWise/ha/` |
+| How it works | `https://novix37.github.io/NairaWise/how-it-works.html` | `https://novix37.github.io/NairaWise/ha/how-it-works.html` |
+| Rates explained | `https://novix37.github.io/NairaWise/rates-explained.html` | `https://novix37.github.io/NairaWise/ha/rates-explained.html` |
+| Data sources | `https://novix37.github.io/NairaWise/methodology.html` | `https://novix37.github.io/NairaWise/ha/methodology.html` |
+| FAQ | `https://novix37.github.io/NairaWise/faq.html` | `https://novix37.github.io/NairaWise/ha/faq.html` |
+| About | `https://novix37.github.io/NairaWise/about.html` | `https://novix37.github.io/NairaWise/ha/about.html` |
+| Feedback | `https://novix37.github.io/NairaWise/contact.html` | `https://novix37.github.io/NairaWise/ha/contact.html` |
 
 ## 3. Main features
 
@@ -115,7 +116,7 @@ No free, permitted, reliable source was verified, so NairaWise **does not show a
 
 Rules enforced in code (and covered by tests):
 
-- HTTP status, JSON structure, pair (`USD`→`NGN`), finite positive rate, real calendar date, not in the future.
+- HTTP status, JSON structure, pair (`USD`→`NGN`), finite positive rate, real calendar date, and a source date no later than the current West Africa Time (WAT) calendar day. There is no one-day future grace period: a next-day rate cannot be verified yet and is rejected.
 - The **rate date is the one the source returned**, never today's date. "Last checked" is the real download time in WAT, or an honest "not known".
 - Saved copies are labelled as saved and are never shown as freshly retrieved.
 - A failed or invalid response never overwrites a good saved rate.
@@ -132,31 +133,30 @@ Rules enforced in code (and covered by tests):
 
 ## 6. Run the site locally
 
-You need only a browser. Opening `index.html` by double-click shows the pages, but the browser blocks the data file, so use a tiny local server:
+You need only a browser. From the project root (the directory containing `index.html`), opening `index.html` by double-click shows the pages, but the browser blocks the data file, so use a tiny local server:
 
 ```bash
-cd NairaWise
 python3 -m http.server 8000      # then open http://localhost:8000/
 ```
 
 Run the automated tests (Node 18 or newer, no installs needed):
 
 ```bash
-node --test
+node --test tests/unit/*.test.js
 ```
 
 ## 7. Deploy with GitHub Pages
 
 1. Create a free GitHub account and a **public** repository, for example `NairaWise`.
-2. Unzip this project and upload **everything inside the `NairaWise/` folder** (including the hidden `.github` and `.nojekyll`) to the repository's `main` branch. Using Git: `git init`, `git add .`, `git commit -m "First version"`, `git remote add origin ...`, `git push -u origin main`.
+2. Put the project files (`index.html`, `ha/`, `assets/`, `data/`, `.github/`, and the other root files) at the repository root on the `main` branch. The Pages workflow packages this repository root and deploys it with GitHub Actions. Using Git: `git init`, `git add .`, `git commit -m "First version"`, `git remote add origin ...`, `git push -u origin main`.
 3. Put your real address into the pages. Either run (needs Node):
    ```bash
    node tools/set-site-url.js https://YOUR-USERNAME.github.io/YOUR-REPO/ https://github.com/YOUR-USERNAME/YOUR-REPO
    ```
    (use your real names), or search-and-replace `https://YOUR-USERNAME.github.io/YOUR-REPO/` and `https://github.com/YOUR-USERNAME/YOUR-REPO` in all files. Commit and push again. This fixes canonical links, `hreflang`, social tags, `sitemap.xml`, `robots.txt`, the 404 page and the feedback link.
-4. **Settings → Pages → Build and deployment → Source: "Deploy from a branch" → Branch: `main` / `(root)` → Save.** Wait about a minute; your address appears at the top of that page.
+4. **Settings → Pages → Build and deployment → Source: GitHub Actions.** The `deploy-pages.yml` workflow uploads the repository root on pushes to `main`, after a successful rate update, and when run manually. Wait for the workflow to finish; your site address appears in the deployment environment.
 5. **Settings → Actions → General → Workflow permissions:** choose "Read and write permissions" if your account or organisation restricts the default. Then run the workflow once manually (Actions tab).
-6. Submit `https://YOUR-USERNAME.github.io/YOUR-REPO/sitemap.xml` in Google Search Console if you want, and follow the data-source terms check in section 4.
+6. Submit `https://novix37.github.io/NairaWise/sitemap.xml` in Google Search Console if you want, and follow the data-source terms check in section 4.
 
 Because every internal link and asset path is **relative**, the site works under `/YOUR-REPO/` and also at the root of a custom domain.
 
@@ -182,7 +182,7 @@ Because every internal link and asset path is **relative**, the site works under
 | "We could not get a rate" | No network, no `data/rates.json` and no saved copy. Press Refresh rate; check the file exists |
 | Stale warning | Rate date is over 3 days old: weekend/holiday, source delay, or the Action stopped (check Actions tab; re-enable if paused) |
 | Styles or scripts missing | Files must be uploaded with folder structure intact. Do not change relative paths to start with `/` |
-| `data/rates.json` not updating on the live site | Check Actions run history. Whether Pages rebuilds after a bot commit was **not tested** here; if it does not, run the workflow again or push any small commit |
+| `data/rates.json` not updating on the live site | Check the rate-update and Pages deployment runs in Actions; a successful rate update triggers a Pages redeploy. |
 | 404 page looks unstyled | `404.html` uses absolute addresses; run `set-site-url.js` (step 3) |
 | Search engines show placeholder addresses | You skipped step 3 of deployment |
 

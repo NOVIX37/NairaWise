@@ -42,9 +42,16 @@ test("only the Frankfurter CBN endpoint is a direct browser source", () => {
 });
 
 test("parseFrankfurter accepts a valid response and keeps the source date", () => {
-  const rec = R.parseFrankfurter(GOOD);
+  const rec = R.parseFrankfurter(GOOD, NOW);
   assert.equal(rec.rate, 1331.596);
   assert.equal(rec.rateDate, "2026-10-12");
+});
+
+test("source dates may not be later than the current WAT calendar day", () => {
+  assert.throws(() => R.parseFrankfurter({ ...GOOD, date: "2026-10-13" }, NOW), /future/);
+  const afterWATMidnight = new Date("2026-10-12T23:30:00Z");
+  assert.equal(R.todayInWAT(afterWATMidnight), "2026-10-13");
+  assert.equal(R.parseFrankfurter({ ...GOOD, date: "2026-10-13" }, afterWATMidnight).rateDate, "2026-10-13");
 });
 
 test("parseFrankfurter rejects bad responses", () => {
@@ -79,11 +86,24 @@ test("stale threshold: 3 days is fine, 4 days is stale", async () => {
 
 test("a rate dated in the future is rejected", async () => {
   const res = await R.getRate({
-    fetch: mockFetch({ "frankfurter.dev": () => ok({ ...GOOD, date: "2026-10-20" }) }),
+    fetch: mockFetch({ "frankfurter.dev": () => ok({ ...GOOD, date: "2026-10-13" }) }),
     storage: memStorage(), now: nowFn
   });
   assert.equal(res.status, "unavailable");
   assert.match(res.errors.join(" "), /future/);
+});
+
+test("future snapshot and cache entries are ignored", async () => {
+  const future = { ...SNAP, rate: 1400, rate_date: "2026-10-13" };
+  const cache = { rate: 1500, rateDate: "2026-10-13", sourceId: "s", sourceLabel: "s", fetchedAt: "2026-10-12T12:00:00.000Z" };
+  const res = await R.getRate({
+    fetch: mockFetch({ "frankfurter.dev": () => Promise.reject(new Error("network down")), "data/rates.json": () => ok(future) }),
+    storage: memStorage({ [R.CACHE_KEY]: JSON.stringify(cache) }), localUrl: "http://x/data/rates.json", now: nowFn
+  });
+  assert.equal(res.status, "unavailable");
+  assert.match(res.errors.join(" "), /future/);
+  assert.equal(R.readCache(memStorage({ [R.CACHE_KEY]: JSON.stringify(cache) }), NOW), null);
+  assert.throws(() => R.parseLocal(future, NOW), /future/);
 });
 
 test("primary fails -> same-origin snapshot is used and labelled as a snapshot", async () => {

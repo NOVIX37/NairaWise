@@ -47,7 +47,12 @@ for (const file of walk(ROOT, [])) {
   if (file.includes(path.sep + "tests" + path.sep) || file.endsWith("README.md")) continue;
   const before = fs.readFileSync(file, "utf8");
   let after = before.split(PLACEHOLDER_SITE).join(site);
-  if (repo) after = after.split(PLACEHOLDER_REPO).join(repo.replace(/\/$/, ""));
+  if (repo) {
+    const repoUrl = repo.replace(/\/$/, "");
+    after = after.split(PLACEHOLDER_REPO).join(repoUrl);
+    after = after.split(PLACEHOLDER_REPO.replace(/^https?:\/\//, ""))
+      .join(repoUrl.replace(/^https?:\/\//, ""));
+  }
   if (after !== before) {
     fs.writeFileSync(file, after);
     changed++;

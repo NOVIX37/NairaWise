@@ -68,31 +68,37 @@
     return daysBetween(rateDate, todayInWAT(now));
   }
 
+  function isFutureRateDate(rateDate, now) {
+    return !!rateDate && isIsoDate(rateDate) && ageInDays(rateDate, now) < 0;
+  }
+
   /* ---------- parsers: return a normalised record or throw ---------- */
 
-  function finish(id, label, rate, rateDate, extra) {
+  function finish(id, label, rate, rateDate, extra, now) {
     if (!isFinitePositive(rate)) throw new Error("Rate is not a positive number");
     if (!isIsoDate(rateDate)) throw new Error("Missing or invalid rate date");
+    if (isFutureRateDate(rateDate, now)) throw new Error("Rate date is in the future");
     var rec = { rate: rate, rateDate: rateDate, sourceId: id, sourceLabel: label };
     if (extra) for (var k in extra) rec[k] = extra[k];
     return rec;
   }
 
-  function parseFrankfurter(json) {
+  function parseFrankfurter(json, now) {
     if (!json || typeof json !== "object") throw new Error("Not a JSON object");
     if (json.base !== "USD" || json.quote !== "NGN") throw new Error("Unexpected currency pair");
-    return finish(PRIMARY.id, PRIMARY.label, json.rate, json.date);
+    return finish(PRIMARY.id, PRIMARY.label, json.rate, json.date, null, now);
   }
 
   /** Same-origin file written by tools/update-rates.js (or the seed file). */
-  function parseLocal(json) {
+  function parseLocal(json, now) {
     if (!json || typeof json !== "object") throw new Error("Not a JSON object");
     if (json.base !== "USD" || json.quote !== "NGN") throw new Error("Unexpected currency pair");
     var rec = finish(
       "published-snapshot",
       "NairaWise data file (" + String(json.source_label || json.source_id || "CBN-sourced") + ")",
       json.rate, json.rate_date,
-      { snapshotSourceId: json.source_id || null }
+      { snapshotSourceId: json.source_id || null },
+      now
     );
     if (typeof json.fetched_at === "string" && !isNaN(Date.parse(json.fetched_at))) {
       rec.fetchedAt = json.fetched_at;
@@ -105,13 +111,14 @@
 
   /* ---------- cache (localStorage) ---------- */
 
-  function readCache(storage) {
+  function readCache(storage, now) {
     try {
       if (!storage) return null;
       var raw = storage.getItem(CACHE_KEY);
       if (!raw) return null;
       var c = JSON.parse(raw);
       if (!c || !isFinitePositive(c.rate) || !isIsoDate(c.rateDate)) return null;
+      if (isFutureRateDate(c.rateDate, now)) return null;
       if (typeof c.fetchedAt !== "string" || isNaN(Date.parse(c.fetchedAt))) return null;
       return c;
     } catch (e) { return null; }
@@ -188,9 +195,8 @@
 
     function tryNetwork(source) {
       return fetchJson(fetchFn, source.url, timeoutMs).then(function (json) {
-        var rec = source.parse(json);
         var n = nowFn();
-        if (ageInDays(rec.rateDate, n) < -1) throw new Error("Rate date is in the future");
+        var rec = source.parse(json, n);
         rec.fetchedAt = n.toISOString();
         return rec;
       });
@@ -222,10 +228,12 @@
         }
         // Both direct sources failed -> same-origin snapshot and local cache.
         var local = opts.localUrl
-          ? fetchJson(fetchFn, opts.localUrl, timeoutMs).then(parseLocal).catch(fail("snapshot"))
+          ? fetchJson(fetchFn, opts.localUrl, timeoutMs).then(function (json) {
+            return parseLocal(json, nowFn());
+          }).catch(fail("snapshot"))
           : Promise.resolve(null);
         return local.then(function (snap) {
-          var cached = readCache(storage);
+          var cached = readCache(storage, nowFn());
           var cachedRec = cached ? {
             rate: cached.rate, rateDate: cached.rateDate, sourceId: cached.sourceId,
             sourceLabel: cached.sourceLabel, fetchedAt: cached.fetchedAt

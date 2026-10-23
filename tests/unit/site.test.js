@@ -14,10 +14,11 @@ const PAGES = [];
 for (const s of SLUGS) { PAGES.push({ lang: "en", slug: s, file: s + ".html" }); PAGES.push({ lang: "ha", slug: s, file: "ha/" + s + ".html" }); }
 
 const REQUIRED = [
-  "index.html", "ha/index.html", "404.html", "robots.txt", "sitemap.xml", "README.md", ".nojekyll",
+  "index.html", "ha/index.html", "404.html", "robots.txt", "sitemap.xml", "README.md",
   "assets/css/styles.css", "assets/js/calc.js", "assets/js/rates.js", "assets/js/converter.js", "assets/js/site.js",
   "assets/images/favicon.svg", "assets/images/apple-touch-icon.png", "assets/images/nairawise-social-preview.png",
-  "data/rates.json", "tools/update-rates.js", "tools/set-site-url.js", ".github/workflows/update-rates.yml"
+  "data/rates.json", "tools/update-rates.js", "tools/set-site-url.js", ".github/workflows/update-rates.yml",
+  ".github/workflows/deploy-pages.yml"
 ].concat(PAGES.map((p) => p.file));
 
 test("all expected files exist", () => {
@@ -98,15 +99,25 @@ test("external links use https and open safely", () => {
   }
 });
 
-test("canonical/OG URLs share one placeholder or one real site address", () => {
-  const bases = new Set();
+test("canonical/OG URLs use the configured GitHub Pages address", () => {
+  const base = "https://novix37.github.io/NairaWise/";
   for (const p of PAGES) {
     const html = read(p.file);
     for (const m of html.matchAll(/(?:canonical" href|og:url" content|og:image" content)="(https:\/\/[^"]+)"/g)) {
-      bases.add(m[1].replace(/(index\.html|[a-z-]+\.html|ha\/|assets\/images\/[^/]+)$/, "").replace(/\/ha\/$/, "/"));
+      assert.ok(m[1].startsWith(base), p.file + " URL is outside " + base + ": " + m[1]);
     }
+    assert.ok(!html.includes("YOUR-USERNAME") && !html.includes("YOUR-REPO"), p.file + " still has URL placeholders");
   }
-  assert.equal(bases.size, 1, "mixed site addresses: " + [...bases].join(", "));
+});
+
+test("published pages and sitemap have no placeholders and feedback links target this repo", () => {
+  const files = PAGES.map((p) => p.file).concat(["404.html", "robots.txt", "sitemap.xml"]);
+  for (const file of files) {
+    assert.ok(!/YOUR-USERNAME|YOUR-REPO/.test(read(file)), file + " still has a deployment placeholder");
+  }
+  for (const file of ["contact.html", "ha/contact.html"]) {
+    assert.match(read(file), /href="https:\/\/github\.com\/NOVIX37\/NairaWise\/issues"[^>]*>github\.com\/NOVIX37\/NairaWise\/issues<\/a>/, file);
+  }
 });
 
 test("structured data is valid JSON and truthful (no ratings/reviews/prices)", () => {
@@ -178,7 +189,7 @@ test("sitemap lists every page in both languages with alternates; robots points 
     const loc = p.slug === "index" ? (p.lang === "en" ? "" : "ha/") : (p.lang === "en" ? "" : "ha/") + p.slug + ".html";
     assert.ok(sm.includes(loc + "</loc>"), "sitemap missing " + p.file);
   }
-  assert.match(read("robots.txt"), /^Sitemap: https:\/\/.+\/sitemap\.xml$/m);
+  assert.match(read("robots.txt"), /^Sitemap: https:\/\/novix37\.github\.io\/NairaWise\/sitemap\.xml$/m);
   assert.ok(!/Disallow:\s*\/\s*$/m.test(read("robots.txt")));
 });
 
@@ -209,5 +220,17 @@ test("GitHub Actions workflow uses minimal permissions and a manual trigger", ()
   assert.match(y, /workflow_dispatch:/);
   assert.match(y, /schedule:/);
   assert.match(y, /permissions:\s*\n\s+contents: write/);
+  assert.match(y, /run:\s*node --test tests\/unit\/\*\.test\.js/);
   assert.ok(!/\$\{\{\s*secrets\./.test(y), "workflow must not use repository secrets");
+});
+
+test("GitHub Pages deployment uploads and deploys the repository root", () => {
+  const y = read(".github/workflows/deploy-pages.yml");
+  assert.match(y, /uses:\s*actions\/upload-pages-artifact@v3/);
+  assert.match(y, /path:\s*"\."/);
+  assert.match(y, /uses:\s*actions\/deploy-pages@v4/);
+  assert.match(y, /permissions:\s*\n\s+contents: read\s*\n\s+pages: write\s*\n\s+id-token: write/);
+  assert.match(y, /workflow_run:\s*\n\s*workflows:\s*\["Update exchange rate"\]/);
+  assert.match(y, /branches:\s*\["main"\]/);
+  assert.match(y, /github\.event\.workflow_run\.conclusion == 'success'/);
 });

@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run the unit tests first
-        run: node --test
+        run: node --test tests/unit/*.test.js
 
       - name: Download and validate the rate
         run: node tools/update-rates.js

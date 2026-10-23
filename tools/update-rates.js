@@ -52,7 +52,7 @@ async function main() {
   const rec = source.parse(json); // throws if the response is not valid
 
   const ageDays = R.ageInDays(rec.rateDate, new Date());
-  if (ageDays < -1) throw new Error("Rate date " + rec.rateDate + " is in the future");
+  if (ageDays < 0) throw new Error("Rate date " + rec.rateDate + " is in the future");
 
   const prev = readPrevious();
   if (prev) {
