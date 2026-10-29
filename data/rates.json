@@ -1,9 +1,9 @@
 {
   "base": "USD",
   "quote": "NGN",
-  "rate": 1347.0259,
-  "rate_date": "2026-10-28",
+  "rate": 1346.4108,
+  "rate_date": "2026-10-29",
   "source_id": "frankfurter-cbn",
   "source_label": "Frankfurter, CBN provider",
-  "fetched_at": "2026-10-29T12:57:32.172Z"
+  "fetched_at": "2026-10-29T20:37:45.898Z"
 }
